@@ -29,6 +29,26 @@
         <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
     <![endif]-->
 
+    <style>
+	.contactTable td > input, textarea {
+	    margin-bottom: 2em;
+	    display: block;
+	    color: black;
+	}
+
+	.contactTable td > label {
+	    display: block;
+	}
+
+	.requiredError, .validationError {
+	    border: solid 2px #FF0000;
+	}
+
+	.contactDiv {
+	    padding-right: 5em;
+	}
+    </style>
+
 </head>
 
 <body id="page-top" data-spy="scroll" data-target=".navbar-fixed-top">
@@ -116,7 +136,43 @@
                 <h2>Contact Guy Smiley</h2>
                 <p>Remember Guy Smiley?  Yeah, he wants to hear from you.</p>
                 <p class="bg-primary">
-                    [[ This is where you'd put your contact form.  Get it done! ]]
+		    <form id="contactForm" action="contactHandler.php">
+		        <div align="center" class="contactDiv">
+			    <table class="contactTable">
+			        <tr>
+				    <td>
+			                <label>Name</label>
+					<input name="name" class="requiredInput">
+				    </td>
+			        </tr>
+			        <tr>
+				    <td>
+			                <label>Email</label>
+			                <input name="email" class="requiredInput">
+				    </td>
+			        </tr>
+			        <tr>
+				    <td>
+			                <label>Phone</label>
+					<input name="phone" type="text">
+				    </td>
+			        </tr>
+			        <tr>
+				    <td>
+			                <label>Message</label>
+					<textarea rows="5" cols="50" name="message" class="requiredInput"></textarea>
+				    </td>
+			        </tr>
+			        <tr>
+				    <td>
+			                <button class="contactSubmitButton btn btn-default btn-lg">
+						Submit
+					</button>
+				    </td>
+			        </tr>
+			    </table>
+		       </div>
+		 </form>
                 </p>
             </div>
         </div>
@@ -146,6 +202,168 @@
 
     <!-- Theme JavaScript -->
     <script src="js/grayscale.min.js"></script>
+
+    <script>
+	$nameInput = $('[name="name"]');
+	$emailInput = $('[name="email"]');
+	$phoneInput = $('[name="phone"]');
+	$messageTextArea = $('[name="message"]');
+	$requiredInput = $(".requiredInput");
+	$contactForm = $("#contactForm");
+
+	$(".contactSubmitButton").on("click", function() {
+		event.preventDefault();
+
+		if (isValidForm()) {
+			$.post($contactForm.attr("action"), $contactForm.serialize(), function(response) {
+				if (response.statusMessage == "Message sent successfully") {
+					$nameInput.val("");
+					$emailInput.val("");
+					$phoneInput.val("");
+					$messageTextArea.val("");
+				}
+
+				alert(response.statusMessage);
+			}, "json");
+		};
+	});
+
+	//Validates form when user clicks submit
+	function isValidForm() {
+		var isValidForm = true;
+
+
+		//Ensure phone, email, and name all have valid values before submitting
+		if (! validatePhoneNumber() || ! validateEmailAddress()) {
+			isValidForm = false;
+		};
+
+
+		//Iterate over required fields to ensure they are filled out
+		$requiredInput.each(function() {
+			if (! $(this).val()) {
+				isValidForm = false;
+
+				if (! $(this).closest("tr").find(".requiredErrorSpan").length) {
+					addError($(this), "required");
+				}
+			}
+		});
+
+		return isValidForm;
+	}
+
+	//Verify name is not empty
+	$nameInput.on("change", function() {
+		verifyNotEmpty($(this));
+	});
+
+	//Verify email is a valid name and that it is not empty
+	$emailInput.on("change", function() {
+		validateEmailAddress();
+		verifyNotEmpty($(this));
+	});
+
+	//Verify message is not empty
+	$messageTextArea.on("change", function() {
+		verifyNotEmpty($(this));
+	});
+
+	//Parse phone number to look like (xxx)xxx-xxxx
+	$phoneInput.keyup(function() {
+		$(this).val($(this).val().replace(/^(\d{3})(\d{3})(\d+)$/, "($1)$2-$3"));
+	});
+
+	$phoneInput.on("change", function() {
+		validatePhoneNumber($(this));
+	});
+
+	//adds error based on invalid input
+	function addError($element, errorType) {
+		if (errorType == "required") {
+			$element.addClass("requiredError");
+			$element.before('<span class="requiredErrorSpan" style="color:red;">Field is ' + errorType + '</span>');
+		} else {
+			var classDiscriminator = errorType.charAt(0).toUpperCase() + errorType.slice(1);
+			var className = "invalid" + classDiscriminator + "Type";
+
+			$element.addClass("validationError");
+			$element.before('<span class="' + className + '" style="color:red;">' + "Invalid " + errorType + '</span>');
+		}
+	}
+
+	//checks whether or not user has entered a valid phone number
+	function validatePhoneNumber() {
+		$phoneErrorSpan = $phoneInput.closest("tr").find(".invalidPhoneType");
+
+		if ($phoneInput.val()) {
+			var filter = /^((\+[1-9]{1,4}[ \-]*)|(\([0-9]{2,3}\)[ \-]*)|([0-9]{2,4})[ \-]*)*?[0-9]{3,4}?[ \-]*[0-9]{3,4}?$/;
+			if (filter.test($phoneInput.val())) {
+				$phoneInput.removeClass("validationError");
+				$(".invalidPhoneType").remove();
+
+				return true;
+			} else {
+				if (! $phoneErrorSpan.length) {
+					addError($phoneInput, "phone");
+
+					return false;
+				}
+			}
+		} else {
+			$(".invalidPhoneType").remove();
+			$phoneInput.removeClass("validationError");
+
+			return true;
+		}
+	}
+
+	//verifies user has entered a valid email address
+	function validateEmailAddress() {
+		$emailErrorSpan = $emailInput.closest("tr").find(".invalidEmailType");
+
+		if ($emailInput.val()) {
+			var filter = /^([a-zA-Z0-9_.+-])+\@(([a-zA-Z0-9-])+\.)+([a-zA-Z0-9]{2,4})+$/;
+
+			if (filter.test($emailInput.val())) {
+				$emailInput.removeClass("validationError");
+				$(".invalidEmailType").remove();
+
+				return true;
+			} else {
+				if (! $emailErrorSpan.length) {
+					addError($emailInput, "email");
+
+					return false;
+				}
+			}
+		} else {
+			$(".invalidEmailType").remove();
+			$emailInput.removeClass("validationError");
+
+			return true;
+		}
+	}
+
+	//Add error if user left field empty or changed it to be empty
+	function verifyNotEmpty($inputElement) {
+		$closestRequiredErrorSpan = $inputElement.closest("tr").find(".requiredErrorSpan");
+
+		if ($inputElement.val()) {
+			$inputElement.removeClass("requiredError");
+
+			if ($closestRequiredErrorSpan.length) {
+				$closestRequiredErrorSpan.remove();
+			}
+
+		} else {
+			if (! $closestRequiredErrorSpan.length) {
+				addError($inputElement, "required");
+			}
+		}
+	}
+
+    </script>
 
 </body>
 
